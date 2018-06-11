@@ -9,7 +9,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 class FailingJob
 {
     /**
-     * Delete the job, call the "failed" method, and raise the failed job event.
+     * Call the "failed" method, raise the failed job event, and delete the job.
      *
      * @param  string  $connectionName
      * @param  \Illuminate\Queue\Jobs\Job  $job
@@ -25,16 +25,17 @@ class FailingJob
         }
 
         try {
-            // If the job has failed, we will delete it, call the "failed" method and then call
-            // an event indicating the job has failed so it can be logged if needed. This is
-            // to allow every developer to better keep monitor of their failed queue jobs.
-            $job->delete();
-
+            // If the job has failed, we will call the "failed" method and fire
+            // an event indicating the job has failed so it can be logged if
+            // needed before finally deleting it.  This is to allow every
+            // developer to better monitor their failed queue jobs.
             $job->failed($e);
         } finally {
             static::events()->dispatch(new JobFailed(
                 $connectionName, $job, $e ?: new ManuallyFailedException
             ));
+
+            $job->delete();
         }
     }
 
