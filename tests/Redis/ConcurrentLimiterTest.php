@@ -133,6 +133,26 @@ class ConcurrentLimiterTest extends TestCase
         $this->assertEquals([1], $store);
     }
 
+
+    public function test_it_only_releases_its_own_lock()
+    {
+        $name = 'test_safe_release';
+
+        $first = new ConcurrencyLimiterMockThatLetsYouManuallyRelease($this->redis(), $name, 1, 1);
+        $second = new ConcurrencyLimiterMockThatLetsYouManuallyRelease($this->redis(), $name, 1, 10);
+
+        // acquire test_safe_release1
+        $this->assertNotNull($firstKey = $first->acquire());
+        // wait for the lock to expire
+        sleep(1);
+        // acquire test_safe_release1 again
+        $this->assertNotNull($secondKey = $second->acquire());
+        // release the first lock, even though it's already been released
+        $first->release($firstKey);
+        // Check if we still have our lock
+        $this->assertNotNull($this->redis()->get($secondKey));
+    }
+
     private function redis()
     {
         return $this->redis['predis']->connection();
@@ -144,5 +164,19 @@ class ConcurrencyLimiterMockThatDoesntRelease extends ConcurrencyLimiter
     protected function release($Key)
     {
         //
+    }
+}
+
+
+class ConcurrencyLimiterMockThatLetsYouManuallyRelease extends ConcurrencyLimiter
+{
+    public function acquire()
+    {
+        return parent::acquire();
+    }
+
+    public function release($key)
+    {
+        parent::release($key);
     }
 }
