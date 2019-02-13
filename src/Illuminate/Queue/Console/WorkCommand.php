@@ -39,34 +39,16 @@ class WorkCommand extends Command
     protected $description = 'Start processing jobs on the queue as a daemon';
 
     /**
-     * The queue worker instance.
-     *
-     * @var \Illuminate\Queue\Worker
-     */
-    protected $worker;
-
-    /**
-     * Create a new queue work command.
-     *
-     * @param  \Illuminate\Queue\Worker  $worker
-     * @return void
-     */
-    public function __construct(Worker $worker)
-    {
-        parent::__construct();
-
-        $this->worker = $worker;
-    }
-
-    /**
      * Execute the console command.
      *
+     * @param Worker $worker
+     *
      * @return void
      */
-    public function handle()
+    public function handle(Worker $worker)
     {
         if ($this->downForMaintenance() && $this->option('once')) {
-            return $this->worker->sleep($this->option('sleep'));
+            return $worker->sleep($this->option('sleep'));
         }
 
         // We'll listen to the processed and failed events so we can write information
@@ -83,22 +65,23 @@ class WorkCommand extends Command
         $queue = $this->getQueue($connection);
 
         $this->runWorker(
-            $connection, $queue
+            $worker, $connection, $queue
         );
     }
 
     /**
      * Run the worker instance.
      *
+     * @param  Worker  $worker
      * @param  string  $connection
      * @param  string  $queue
      * @return array
      */
-    protected function runWorker($connection, $queue)
+    protected function runWorker(Worker $worker, $connection, $queue)
     {
-        $this->worker->setCache($this->laravel['cache']->driver());
+        $worker->setCache($this->laravel['cache']->driver());
 
-        return $this->worker->{$this->option('once') ? 'runNextJob' : 'daemon'}(
+        return $worker->{$this->option('once') ? 'runNextJob' : 'daemon'}(
             $connection, $queue, $this->gatherWorkerOptions()
         );
     }
